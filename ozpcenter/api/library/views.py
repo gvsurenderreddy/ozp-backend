@@ -26,9 +26,9 @@ from rest_framework.decorators import list_route
 from rest_framework.response import Response
 
 from ozpcenter import permissions
-import ozpcenter.api.library.model_access as model_access
-import ozpcenter.api.listing.model_access as listing_model_access
-import ozpcenter.api.library.serializers as serializers
+from ozpcenter.api.library import serializers
+from ozpcenter.api.library import model_access
+
 
 # Get an instance of a logger
 logger = logging.getLogger('ozp-center.' + str(__name__))
@@ -82,10 +82,7 @@ class UserLibraryViewSet(viewsets.ViewSet):
 
     def get_queryset(self):
         listing_type = self.request.query_params.get('type', None)
-        if listing_type:
-            queryset = model_access.get_self_application_library_by_listing_type(self.request.user.username, listing_type)
-        else:
-            queryset = model_access.get_self_application_library(self.request.user.username)
+        queryset = model_access.get_self_application_library(self.request.user.username, listing_type)
         return queryset
 
     def create(self, request):
@@ -160,6 +157,13 @@ class UserLibraryViewSet(viewsets.ViewSet):
 
         Used to move library entries into different folders for HUD
 
+        Notes:
+            This method is different than most. The ViewSet update method only
+            works on a single instance, hence the use of a special update_all
+            method. Serializers must be customized to support nested writable
+            representations, and even after doing so, the input data validation
+            didn't seem acceptable. Hence this customized method
+
         [
             {
                 "listing": {
@@ -187,25 +191,8 @@ class UserLibraryViewSet(viewsets.ViewSet):
         omit_serializer: true
         """
         username = request.user.username
-        # This method is different than most. The ViewSet update method only
-        # works on a single instance, hence the use of a special update_all
-        # method. Serializers must be customized to support nested writable
-        # representations, and even after doing so, the input data validation
-        # didn't seem acceptable. Hence this customized method
-        #
-        # validate input
-        for i in request.data:
-            if 'listing' not in i or 'id' not in i:
-                return Response('Missing listing and/or id from request data',
-                    status=status.HTTP_400_BAD_REQUEST)
-
-        # update each instance
-        for i in request.data:
-            instance = model_access.get_library_entry_by_id(i['id'])
-            instance.folder = i['folder']
-            instance.listing = listing_model_access.get_listing_by_id(username,
-                i['listing']['id'])
-            instance.save()
-
-        # return original data
-        return Response(request.data, status=status.HTTP_200_OK)
+        errors, data = model_access.batch_update_user_library_entry(username, request.data)
+        if errors:
+            return Response({'message': '{0}'.format(errors)}, status=status.HTTP_500_BAD_REQUEST)
+        else:
+            return Response(data, status=status.HTTP_200_OK)

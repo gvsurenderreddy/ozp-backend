@@ -6,10 +6,9 @@ import logging
 from rest_framework import serializers
 
 from ozpcenter import models
-import ozpcenter.api.image.serializers as image_serializers
+from ozpcenter.api.library import model_access
 import ozpcenter.api.listing.model_access as listing_model_access
-#  import ozpcenter.api.profile.serializers as profile_serializers  # TODO: Figure out why this line was imported
-import ozpcenter.model_access as generic_model_access
+import ozpcenter.api.image.serializers as image_serializers
 
 # Get an instance of a logger
 logger = logging.getLogger('ozp-center.' + str(__name__))
@@ -82,12 +81,6 @@ class UserLibrarySerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         username = self.context['request'].user.username
-        folder = validated_data.get('folder', None)
-        listing = listing_model_access.get_listing_by_id(username,
-            validated_data['listing']['id'])
-        logger.debug('adding bookmark for {0!s}'.format(listing.title), extra={'request': self.context.get('request')})
-        owner = generic_model_access.get_profile(username)
-        entry = models.ApplicationLibraryEntry(listing=listing, owner=owner,
-            folder=folder)
-        entry.save()
-        return entry
+        listing_id = validated_data['listing']['id']
+        folder_name = validated_data.get('folder')
+        return model_access.create_self_user_library_entry(username, listing_id, folder_name)
