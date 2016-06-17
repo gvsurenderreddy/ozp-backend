@@ -149,7 +149,8 @@ def _check_profile_permission(user_role_type, notification_action, notification_
     return permissions.get(user_role_type, {}).get(notification_action, {}).get(notification_type, lambda: raise_(errors.PermissionDenied('Unknown Permissions')))
 
 
-def create_notification(author_username, expires_date, message, listing=None, agency=None):
+def create_notification(author_username, expires_date, message,
+                        listing=None, agency=None, peer=None, peer_data=None):
     """
     Create Notification
 

@@ -53,15 +53,39 @@ class NotificationAgencySerializer(serializers.ModelSerializer):
         }
 
 
+class GenericField(serializers.ReadOnlyField):
+    """
+    Read Only Field
+    """
+
+    def to_native(self, obj):
+        return obj
+
+
 class NotificationSerializer(serializers.ModelSerializer):
     author = ShortProfileSerializer(required=False)
+    peer = ShortProfileSerializer(required=False)
     listing = NotificationListingSerializer(required=False)
     agency = NotificationAgencySerializer(required=False)
+    notification_type = GenericField(required=False)
+
+    extra_kwargs = {
+        'listing': {'validators': []},
+        'agency': {'validators': []},
+        'peer': {'validators': []},
+    }
 
     class Meta:
         model = models.Notification
-        fields = ('id', 'created_date', 'message', 'expires_date', 'author',
-            'listing', 'agency')
+        fields = ('id',
+                  'created_date',
+                  'expires_date',
+                  'message',
+                  'author',
+                  'listing',
+                  'agency',
+                  'peer',
+                  'notification_type')
 
     def validate(self, validated_data):
         """ Responsible of cleaning and validating user input data """

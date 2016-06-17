@@ -214,21 +214,6 @@ class Agency(models.Model):
     class Meta:
         verbose_name_plural = "agencies"
 
-# TODO
-# class ApplicationLibraryFolder(models.Model):
-#     """
-#     A change made to a field of a Listing
-#
-#     Additional db.relationships:
-#         * ListingActivity (ManyToMany)
-#     """
-#     folder_name = models.CharField(max_length=255)
-#
-#
-#     def __repr__(self):
-#         return "id:%d field %s was %s now is %s" % (
-#             self.id, self.field_name, self.old_value, self.new_value)
-
 
 class ApplicationLibraryEntry(models.Model):
     """
@@ -571,6 +556,21 @@ class Profile(models.Model):
         auth.models.Group.objects.create(name='USER')
         auth.models.Group.objects.create(name='ORG_STEWARD')
         auth.models.Group.objects.create(name='APPS_MALL_STEWARD')
+
+    def is_apps_mall_steward(self):
+        if self.highest_role() == 'APPS_MALL_STEWARD':
+            return True
+        return False
+
+    def is_steward(self):
+        if self.highest_role() in ['APPS_MALL_STEWARD', 'ORG_STEWARD']:
+            return True
+        return False
+
+    def is_user(self):
+        if self.highest_role() == 'USER':
+            return True
+        return False
 
     def highest_role(self):
         """
@@ -991,15 +991,62 @@ class Notification(models.Model):
     message = models.CharField(max_length=4096)
     expires_date = models.DateTimeField()
     author = models.ForeignKey(Profile, related_name='authored_notifications')
+    listing = models.ForeignKey(Listing, related_name='notifications',
+                                null=True, blank=True)
+    agency = models.ForeignKey(Agency, related_name='agency_notifications',
+                               null=True, blank=True)
+    peer = models.ForeignKey(Profile, related_name='peer_notifications',
+                             null=True, blank=True)
+    # Peer_data should be a JSON Stringified Object
+    # Example JSON: {'folder_name':'folder1'}
+    peer_data = models.CharField(max_length=4096, null=True, blank=True)
+
     dismissed_by = models.ManyToManyField(
         'Profile',
         related_name='dismissed_notifications',
         db_table='notification_profile'
     )
-    listing = models.ForeignKey(Listing, related_name='notifications',
-                                null=True, blank=True)
-    agency = models.ForeignKey(Agency, related_name='agency_notifications',
-                               null=True, blank=True)
+
+    def notification_type(self):
+        """
+        Dynamically figure out Notification Type
+
+        Types:
+            SYSTEM - System-wide Notifications
+            AGENCY - Agency-wide Notifications
+            LISTING - Listing Notifications
+            PEER - Peer to Peer Notifications
+            PEER.BOOKMARK - Peer Bookmark Notifications
+        """
+        type_list = []
+
+        peer_list = []
+
+        if self.peer:
+            peer_list.append('PEER')
+
+        if self.peer_data:
+            try:
+                json_obj = json.loads(self.peer_data)
+                if 'folder_name' in json_obj:
+                    peer_list.append('BOOKMARK')
+            except ValueError:
+                # Ignore Value Errors
+                pass
+
+        if peer_list:
+            type_list.append('.'.join(peer_list))
+
+        if self.listing:
+            type_list.append('LISTING')
+
+        if self.agency:
+            type_list.append('AGENCY')
+
+        if not type_list:
+            type_list.append('SYSTEM')
+
+        return ','.join(type_list)
 
     def __repr__(self):
         return '{0!s}: {1!s}'.format(self.author.user.username, self.message)

@@ -26,23 +26,30 @@ class NotificationApiTest(APITestCase):
         """
         data_gen.run()
 
-    def test_get_self_notification(self):
+    def test_get_self_notification_unauthorized(self):
         url = '/api/self/notification/'
         # test unauthorized user
         response = self.client.get(url, format='json')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_get_self_notification(self):
         # test authorized user
+        url = '/api/self/notification/'
         user = generic_model_access.get_profile('wsmith').user
         self.client.force_authenticate(user=user)
         response = self.client.get(url, format='json')
-        first_notification = response.data[0]
-        self.assertIn('id', first_notification)
-        self.assertIn('author', first_notification)
-        self.assertIn('listing', first_notification)
-        self.assertIn('created_date', first_notification)
-        self.assertIn('message', first_notification)
-        self.assertIn('expires_date', first_notification)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        for current_notification in response.data:
+            self.assertIn('id', current_notification)
+            self.assertIn('created_date', current_notification)
+            self.assertIn('expires_date', current_notification)
+            self.assertIn('message', current_notification)
+            self.assertIn('author', current_notification)
+            self.assertIn('listing', current_notification)
+            self.assertIn('agency', current_notification)
+            self.assertIn('peer', current_notification)
+            self.assertIn('notification_type', current_notification)
 
     def test_get_self_notification_ordering(self):
         url = '/api/self/notification/'
@@ -144,7 +151,9 @@ class NotificationApiTest(APITestCase):
                 "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=pytz.utc)
             self.assertTrue(test_time < now)
 
-    def test_get_pending_notifications_listing(self):
+    # TODO: test_all_notifications_listing_filter
+
+    def test_all_pending_notifications_listing_filter(self):
         url = '/api/notifications/pending/?listing=1'
         # test unauthorized user
         user = generic_model_access.get_profile('jones').user
@@ -167,8 +176,7 @@ class NotificationApiTest(APITestCase):
                 "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=pytz.utc)
             self.assertTrue(test_time > now)
 
-    # TODO: Test All Notification Listing Filter
-    # TODO: Test All Expiring Notification Listing Filter
+    # TODO: test_all_expiring_notifications_listing_filter
 
     def test_create_system_notification(self):
         url = '/api/notification/'
@@ -196,10 +204,20 @@ class NotificationApiTest(APITestCase):
         now = datetime.datetime.now(pytz.utc)
         data = {'expires_date': str(now)}
         response = self.client.put(url, data, format='json')
-        print(response.data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-    # test_create_agency_notification
+    # TODO test_create_listing_notification
+    '''
+    {
+    "expires_date":"2016-06-17T06:30:00.000Z",
+     "message":"Test",
+        "listing" : {
+            "id":2
+
+        }
+    }
+    '''
+    # TODO test_create_agency_notification
     '''
     {
     "expires_date":"2016-06-17T06:30:00.000Z",
@@ -210,13 +228,45 @@ class NotificationApiTest(APITestCase):
         }
     }
     '''
+    # TODO test_create_peer_notification
+    '''
+    {
+    "expires_date":"2016-06-17T06:30:00.000Z",
+     "message":"Test",
+        "peer" : {
+            "username":"bigbrother"
+        }
+    }
+    '''
+    # TODO test_create_peer_notification_invalid
+    '''
+    {
+    "expires_date":"2016-06-17T06:30:00.000Z",
+     "message":"Test",
+        "peer" : {
+            "username":"invalid"
+        }
+    }
+    '''
+    # TODO test_create_peer_bookmark_notification
+    '''
+    {
+        "expires_date":"2016-06-17T06:30:00.000Z",
+        "message":"Test",
+        "peer" : {
+            "username":"bigbrother"
+        },
+        "peer_data": {
+            "folder_name":"folder1"
+        }
+    }
+    '''
 
-    # def test_delete_system_notification(self):
-    #     url = '/api/notification/1/'
-    #     user = generic_model_access.get_profile('wsmith').user
-    #     self.client.force_authenticate(user=user)
-    #     now = datetime.datetime.now(pytz.utc)
-    #     data = {'expires_date': str(now)}
-    #     response = self.client.put(url, data, format='json')
-    #     print(response.data)
-    #     self.assertEqual(response.status_code, status.HTTP_200_OK)
+    def test_delete_system_notification(self):
+        url = '/api/notification/1/'
+        user = generic_model_access.get_profile('wsmith').user
+        self.client.force_authenticate(user=user)
+        response = self.client.delete(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+    # TODO: test_delete_system_notification invalid
