@@ -590,6 +590,21 @@ class Profile(models.Model):
             logger.error('User {0!s} has invalid Group'.format(self.user.username))
             return ''
 
+    def is_apps_mall_steward(self):
+        if self.highest_role() == 'APPS_MALL_STEWARD':
+            return True
+        return False
+
+    def is_steward(self):
+        if self.highest_role() in ['APPS_MALL_STEWARD', 'ORG_STEWARD']:
+            return True
+        return False
+
+    def is_user(self):
+        if self.highest_role() == 'USER':
+            return True
+        return False
+
     @staticmethod
     def create_user(username, **kwargs):
         """
@@ -1000,6 +1015,28 @@ class Notification(models.Model):
                                 null=True, blank=True)
     agency = models.ForeignKey(Agency, related_name='agency_notifications',
                                null=True, blank=True)
+
+    def notification_type(self):
+        """
+        Dynamically figure out Notification Type
+
+        Types:
+            SYSTEM - System-wide Notifications
+            AGENCY - Agency-wide Notifications
+            LISTING - Listing Notifications
+        """
+        type_list = []
+
+        if self.listing:
+            type_list.append('LISTING')
+
+        if self.agency:
+            type_list.append('AGENCY')
+
+        if not type_list:
+            type_list.append('SYSTEM')
+
+        return ','.join(type_list)
 
     def __repr__(self):
         return '{0!s}: {1!s}'.format(self.author.user.username, self.message)

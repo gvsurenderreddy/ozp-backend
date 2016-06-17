@@ -9,12 +9,11 @@ Requirements
 
 GET /api/self/library
 Summary:
-    return The id and unique name of each listing in the user's library
+    Return The id and unique name of each listing in the user's library
 
-POST /api/self/library/import/{folder_id}
+POST /api/self/library/import_bookmarks/{bookmark_notification_id}
 Summary:
-    return The id and unique name of each listing in the user's library
-
+    Return The id and unique name of each listing in the user's library
 
 """
 import logging

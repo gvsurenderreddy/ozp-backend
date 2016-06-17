@@ -27,22 +27,28 @@ class NotificationApiTest(APITestCase):
         data_gen.run()
 
     def test_get_self_notification(self):
-        url = '/api/self/notification/'
-        # test unauthorized user
-        response = self.client.get(url, format='json')
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
         # test authorized user
+        url = '/api/self/notification/'
         user = generic_model_access.get_profile('wsmith').user
         self.client.force_authenticate(user=user)
         response = self.client.get(url, format='json')
-        first_notification = response.data[0]
-        self.assertIn('id', first_notification)
-        self.assertIn('author', first_notification)
-        self.assertIn('listing', first_notification)
-        self.assertIn('created_date', first_notification)
-        self.assertIn('message', first_notification)
-        self.assertIn('expires_date', first_notification)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        for current_notification in response.data:
+            self.assertIn('id', current_notification)
+            self.assertIn('created_date', current_notification)
+            self.assertIn('expires_date', current_notification)
+            self.assertIn('message', current_notification)
+            self.assertIn('author', current_notification)
+            self.assertIn('listing', current_notification)
+            self.assertIn('agency', current_notification)
+            self.assertIn('notification_type', current_notification)
+            # self.assertIn('peer', current_notification)
+
+    def test_get_self_notification_unauthorized(self):
+        url = '/api/self/notification/'
+        response = self.client.get(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_get_self_notification_ordering(self):
         url = '/api/self/notification/'
@@ -77,7 +83,6 @@ class NotificationApiTest(APITestCase):
 
     def test_dismiss_self_notification(self):
         url = '/api/self/notification/'
-        # test authorized user
         user = generic_model_access.get_profile('wsmith').user
         self.client.force_authenticate(user=user)
         response = self.client.get(url, format='json')
@@ -95,7 +100,6 @@ class NotificationApiTest(APITestCase):
 
         # now get our notifications again, make sure the one was removed
         url = '/api/self/notification/'
-        # test authorized user
         response = self.client.get(url, format='json')
         notification_ids = []
         for i in response.data:
@@ -106,12 +110,6 @@ class NotificationApiTest(APITestCase):
 
     def test_get_pending_notifications(self):
         url = '/api/notifications/pending/'
-        # test unauthorized user
-        user = generic_model_access.get_profile('jones').user
-        self.client.force_authenticate(user=user)
-        response = self.client.get(url, format='json')
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
         user = generic_model_access.get_profile('wsmith').user
         self.client.force_authenticate(user=user)
         response = self.client.get(url, format='json')
@@ -124,14 +122,15 @@ class NotificationApiTest(APITestCase):
                 "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=pytz.utc)
             self.assertTrue(test_time > now)
 
-    def test_get_expired_notifications(self):
-        url = '/api/notifications/expired/'
-        # test unauthorized user
+    def test_get_pending_notifications_user_unauthorized(self):
+        url = '/api/notifications/pending/'
         user = generic_model_access.get_profile('jones').user
         self.client.force_authenticate(user=user)
         response = self.client.get(url, format='json')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_get_expired_notifications(self):
+        url = '/api/notifications/expired/'
         user = generic_model_access.get_profile('wsmith').user
         self.client.force_authenticate(user=user)
         response = self.client.get(url, format='json')
@@ -144,14 +143,17 @@ class NotificationApiTest(APITestCase):
                 "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=pytz.utc)
             self.assertTrue(test_time < now)
 
-    def test_get_pending_notifications_listing(self):
-        url = '/api/notifications/pending/?listing=1'
-        # test unauthorized user
+    def test_get_expired_notifications_user_unauthorized(self):
+        url = '/api/notifications/expired/'
         user = generic_model_access.get_profile('jones').user
         self.client.force_authenticate(user=user)
         response = self.client.get(url, format='json')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    # TODO: test_all_notifications_listing_filter (rivera 20150617)
+
+    def test_all_pending_notifications_listing_filter(self):
+        url = '/api/notifications/pending/?listing=1'
         user = generic_model_access.get_profile('bigbrother').user
         self.client.force_authenticate(user=user)
         response = self.client.get(url, format='json')
@@ -167,27 +169,36 @@ class NotificationApiTest(APITestCase):
                 "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=pytz.utc)
             self.assertTrue(test_time > now)
 
-    # TODO: Test All Notification Listing Filter
-    # TODO: Test All Expiring Notification Listing Filter
+    def test_all_pending_notifications_listing_filter_user_unauthorized(self):
+        url = '/api/notifications/pending/?listing=1'
+        user = generic_model_access.get_profile('jones').user
+        self.client.force_authenticate(user=user)
+        response = self.client.get(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    # TODO: test_all_expiring_notifications_listing_filter  (rivera 20150617)
 
     def test_create_system_notification(self):
         url = '/api/notification/'
-        # test unauthorized user - only org stewards and above can create
-        # system notifications
-        user = generic_model_access.get_profile('jones').user
-        self.client.force_authenticate(user=user)
-        data = {'expires_date': '2016-09-01T15:45:55.322421Z',
-            'message': 'a simple test'}
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
         user = generic_model_access.get_profile('bigbrother').user
         self.client.force_authenticate(user=user)
         data = {'expires_date': '2016-09-01T15:45:55.322421Z',
-            'message': 'a simple test'}
+                'message': 'a simple test'}
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['message'], 'a simple test')
+        self.assertEqual(response.data['notification_type'], 'SYSTEM')
+
+    def test_create_system_notification_unauthorized_user(self):
+        # test unauthorized user - only org stewards and above can create
+        # system notifications
+        url = '/api/notification/'
+        user = generic_model_access.get_profile('jones').user
+        self.client.force_authenticate(user=user)
+        data = {'expires_date': '2016-09-01T15:45:55.322421Z',
+                'message': 'a simple test'}
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_update_system_notification(self):
         url = '/api/notification/1/'
@@ -196,27 +207,123 @@ class NotificationApiTest(APITestCase):
         now = datetime.datetime.now(pytz.utc)
         data = {'expires_date': str(now)}
         response = self.client.put(url, data, format='json')
-        print(response.data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-    # test_create_agency_notification
-    '''
-    {
-    "expires_date":"2016-06-17T06:30:00.000Z",
-     "message":"Test",
-        "agency" : {
-            "id":2
+    def test_update_system_notification_unauthorized_user(self):
+        url = '/api/notification/1/'
+        user = generic_model_access.get_profile('jones').user
+        self.client.force_authenticate(user=user)
+        now = datetime.datetime.now(pytz.utc)
+        data = {'expires_date': str(now)}
+        response = self.client.put(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-        }
-    }
-    '''
-
-    # def test_delete_system_notification(self):
+    # TODO below test should work when permission gets refactored (rivera 20150617)
+    # def test_update_system_notification_unauthorized_org_steward(self):
     #     url = '/api/notification/1/'
     #     user = generic_model_access.get_profile('wsmith').user
     #     self.client.force_authenticate(user=user)
     #     now = datetime.datetime.now(pytz.utc)
     #     data = {'expires_date': str(now)}
     #     response = self.client.put(url, data, format='json')
-    #     print(response.data)
-    #     self.assertEqual(response.status_code, status.HTTP_200_OK)
+    #     self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_create_listing_notification_app_mall_steward(self):
+        url = '/api/notification/'
+        user = generic_model_access.get_profile('bigbrother').user
+        self.client.force_authenticate(user=user)
+        now = datetime.datetime.now(pytz.utc)
+
+        data = {'expires_date': str(now),
+                'message': 'a simple listing test',
+                'listing': {'id': 1}
+                }
+
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['message'], 'a simple listing test')
+        self.assertEqual(response.data['notification_type'], 'LISTING')
+        self.assertEqual(response.data['listing']['id'], 1)
+
+    # TODO: test_create_listing_notification_app_mall_steward_invalid (rivera 20150617)
+    # TODO: test_create_listing_notification_org_steward (rivera 20150617)
+    # TODO: test_create_listing_notification_org_steward_invalid (rivera 20150617)
+    # TODO: test_create_listing_notification_user_unauthorized (rivera 20150617)
+
+    def test_create_agency_notification_app_mall_steward(self):
+        url = '/api/notification/'
+        user = generic_model_access.get_profile('bigbrother').user
+        self.client.force_authenticate(user=user)
+        now = datetime.datetime.now(pytz.utc)
+
+        data = {'expires_date': str(now),
+                'message': 'a simple agency test',
+                'agency': {'id': 1}
+                }
+
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['message'], 'a simple agency test')
+        self.assertEqual(response.data['notification_type'], 'AGENCY')
+        self.assertEqual(response.data['agency']['id'], 1)
+
+    # TODO: test_create_agency_notification_app_mall_steward_invalid (rivera 20150617)
+    # TODO: test_create_agency_notification_org_steward (rivera 20150617)
+    # TODO: test_create_agency_notification_org_steward_invalid (rivera 20150617)
+    # TODO: test_create_agency_notification_user_unauthorized (rivera 20150617)
+
+    # TODO test_create_peer_notification (rivera 20150617)
+    '''
+    {
+    "expires_date":"2016-06-17T06:30:00.000Z",
+     "message":"Test",
+        "peer" : {
+            "username":"bigbrother"
+        }
+    }
+    '''
+    # TODO test_create_peer_notification_invalid (rivera 20150617)
+    '''
+    {
+    "expires_date":"2016-06-17T06:30:00.000Z",
+     "message":"Test",
+        "peer" : {
+            "username":"invalid"
+        }
+    }
+    '''
+    # TODO test_create_peer_bookmark_notification (rivera 20150617)
+    '''
+    {
+        "expires_date":"2016-06-17T06:30:00.000Z",
+        "message":"Test",
+        "peer" : {
+            "username":"bigbrother"
+        },
+        "peer_data": {
+            "folder_name":"folder1"
+        }
+    }
+    '''
+
+    def test_delete_system_notification_apps_mall_steward(self):
+        url = '/api/notification/1/'
+        user = generic_model_access.get_profile('bigbrother').user
+        self.client.force_authenticate(user=user)
+        response = self.client.delete(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+    # TODO: below test should work when permission gets refactored (rivera 20150617)
+    # def test_delete_system_notification_org_steward(self):
+    #     url = '/api/notification/1/'
+    #     user = generic_model_access.get_profile('wsmith').user
+    #     self.client.force_authenticate(user=user)
+    #     response = self.client.delete(url, format='json')
+    #     self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_delete_system_notification_user_unauthorized(self):
+        url = '/api/notification/1/'
+        user = generic_model_access.get_profile('jones').user
+        self.client.force_authenticate(user=user)
+        response = self.client.delete(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

@@ -15,10 +15,10 @@ pre:
 	export DJANGO_SETTINGS_MODULE=ozp.settings
 
 test: clean pre create_static
-	python manage.py test
+	python -q -X faulthandler manage.py test
 
-ftest: pre
-	python manage.py test
+softtest: pre
+	python -q -X faulthandler manage.py test
 
 run:
 	python manage.py runserver
