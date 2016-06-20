@@ -1,6 +1,7 @@
 """
 Tests for notification endpoints
 """
+from unittest import skip
 import datetime
 import pytz
 
@@ -43,7 +44,7 @@ class NotificationApiTest(APITestCase):
             self.assertIn('listing', current_notification)
             self.assertIn('agency', current_notification)
             self.assertIn('notification_type', current_notification)
-            # self.assertIn('peer', current_notification)
+            self.assertIn('peer', current_notification)
 
     def test_get_self_notification_unauthorized(self):
         url = '/api/self/notification/'
@@ -129,29 +130,6 @@ class NotificationApiTest(APITestCase):
         response = self.client.get(url, format='json')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_get_expired_notifications(self):
-        url = '/api/notifications/expired/'
-        user = generic_model_access.get_profile('wsmith').user
-        self.client.force_authenticate(user=user)
-        response = self.client.get(url, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        expires_at = [i['expires_date'] for i in response.data]
-        self.assertTrue(len(expires_at) > 1)
-        now = datetime.datetime.now(pytz.utc)
-        for i in expires_at:
-            test_time = datetime.datetime.strptime(i,
-                "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=pytz.utc)
-            self.assertTrue(test_time < now)
-
-    def test_get_expired_notifications_user_unauthorized(self):
-        url = '/api/notifications/expired/'
-        user = generic_model_access.get_profile('jones').user
-        self.client.force_authenticate(user=user)
-        response = self.client.get(url, format='json')
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-    # TODO: test_all_notifications_listing_filter (rivera 20150617)
-
     def test_all_pending_notifications_listing_filter(self):
         url = '/api/notifications/pending/?listing=1'
         user = generic_model_access.get_profile('bigbrother').user
@@ -176,7 +154,54 @@ class NotificationApiTest(APITestCase):
         response = self.client.get(url, format='json')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    # TODO: test_all_expiring_notifications_listing_filter  (rivera 20150617)
+    def test_get_expired_notifications(self):
+        url = '/api/notifications/expired/'
+        user = generic_model_access.get_profile('wsmith').user
+        self.client.force_authenticate(user=user)
+        response = self.client.get(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        expires_at = [i['expires_date'] for i in response.data]
+        self.assertTrue(len(expires_at) > 1)
+        now = datetime.datetime.now(pytz.utc)
+        for i in expires_at:
+            test_time = datetime.datetime.strptime(i,
+                "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=pytz.utc)
+            self.assertTrue(test_time < now)
+
+    def test_get_expired_notifications_user_unauthorized(self):
+        url = '/api/notifications/expired/'
+        user = generic_model_access.get_profile('jones').user
+        self.client.force_authenticate(user=user)
+        response = self.client.get(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    # TODO should work when data script gets refactored (rivera 20150620)
+    @skip("should work when data script gets refactored (rivera 20150620)")
+    def test_all_expired_notifications_listing_filter(self):
+        url = '/api/notifications/expired/?listing=1'
+        user = generic_model_access.get_profile('bigbrother').user
+        self.client.force_authenticate(user=user)
+        response = self.client.get(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [i['id'] for i in response.data]
+
+        self.assertTrue(ids, [1])
+        expires_at = [i['expires_date'] for i in response.data]
+        self.assertTrue(len(expires_at) == 1)
+        now = datetime.datetime.now(pytz.utc)
+        for i in expires_at:
+            test_time = datetime.datetime.strptime(i,
+                "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=pytz.utc)
+            self.assertTrue(test_time < now)
+
+    def test_all_expired_notifications_listing_filter_user_unauthorized(self):
+        url = '/api/notifications/expired/?listing=1'
+        user = generic_model_access.get_profile('jones').user
+        self.client.force_authenticate(user=user)
+        response = self.client.get(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    # TODO: test_all_notifications_listing_filter (rivera 20150617)
 
     def test_create_system_notification(self):
         url = '/api/notification/'
@@ -191,7 +216,6 @@ class NotificationApiTest(APITestCase):
 
     def test_create_system_notification_unauthorized_user(self):
         # test unauthorized user - only org stewards and above can create
-        # system notifications
         url = '/api/notification/'
         user = generic_model_access.get_profile('jones').user
         self.client.force_authenticate(user=user)
@@ -218,15 +242,16 @@ class NotificationApiTest(APITestCase):
         response = self.client.put(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    # TODO below test should work when permission gets refactored (rivera 20150617)
-    # def test_update_system_notification_unauthorized_org_steward(self):
-    #     url = '/api/notification/1/'
-    #     user = generic_model_access.get_profile('wsmith').user
-    #     self.client.force_authenticate(user=user)
-    #     now = datetime.datetime.now(pytz.utc)
-    #     data = {'expires_date': str(now)}
-    #     response = self.client.put(url, data, format='json')
-    #     self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+    # TODO below test should work when permission gets refactored (rivera 20150620)
+    @skip("should work permissions gets refactored (rivera 20150620)")
+    def test_update_system_notification_unauthorized_org_steward(self):
+        url = '/api/notification/1/'
+        user = generic_model_access.get_profile('wsmith').user
+        self.client.force_authenticate(user=user)
+        now = datetime.datetime.now(pytz.utc)
+        data = {'expires_date': str(now)}
+        response = self.client.put(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_create_listing_notification_app_mall_steward(self):
         url = '/api/notification/'
@@ -236,17 +261,121 @@ class NotificationApiTest(APITestCase):
 
         data = {'expires_date': str(now),
                 'message': 'a simple listing test',
-                'listing': {'id': 1}
-                }
+                'listing': {
+            'id': 1
+            }}
 
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['message'], 'a simple listing test')
         self.assertEqual(response.data['notification_type'], 'LISTING')
         self.assertEqual(response.data['listing']['id'], 1)
+        self.assertEqual(response.data['agency'], None)
+        self.assertTrue('expires_date' in data)
 
-    # TODO: test_create_listing_notification_app_mall_steward_invalid (rivera 20150617)
-    # TODO: test_create_listing_notification_org_steward (rivera 20150617)
+    def test_create_listing_notification_app_mall_steward_invalid_format(self):
+        url = '/api/notification/'
+        user = generic_model_access.get_profile('bigbrother').user
+        self.client.force_authenticate(user=user)
+        now = datetime.datetime.now(pytz.utc)
+
+        data = {'expires_date': str(now),
+                'message': 'a simple listing test',
+                'listing': {
+            'invalid': 1
+            }}
+
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['non_field_errors'], ['Valid Listing ID is required'])
+
+    def test_create_listing_notification_app_mall_steward_invalid_id(self):
+        url = '/api/notification/'
+        user = generic_model_access.get_profile('bigbrother').user
+        self.client.force_authenticate(user=user)
+        now = datetime.datetime.now(pytz.utc)
+
+        data = {'expires_date': str(now),
+                'message': 'a simple listing test',
+                'listing': {
+            'id': -1
+            }}
+
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['non_field_errors'], ['Could not find listing'])
+
+    def test_create_listing_agency_notification_app_mall_steward_invalid(self):
+        url = '/api/notification/'
+        user = generic_model_access.get_profile('bigbrother').user
+        self.client.force_authenticate(user=user)
+        now = datetime.datetime.now(pytz.utc)
+
+        data = {'expires_date': str(now),
+                'message': 'a simple listing test',
+                'listing': {
+            'id': 1
+            },
+            'agency': {
+            'id': 1
+            }}
+
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['non_field_errors'], ["Notifications can only be one type. Input: ['listing', 'agency']"])
+
+    def test_create_listing_notification_org_steward(self):
+        url = '/api/notification/'
+        user = generic_model_access.get_profile('wsmith').user
+        self.client.force_authenticate(user=user)
+        now = datetime.datetime.now(pytz.utc)
+
+        data = {'expires_date': str(now),
+                'message': 'a simple listing test',
+                'listing': {
+            'id': 1
+            }}
+
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['message'], 'a simple listing test')
+        self.assertEqual(response.data['notification_type'], 'LISTING')
+        self.assertEqual(response.data['listing']['id'], 1)
+        self.assertEqual(response.data['agency'], None)
+        self.assertTrue('expires_date' in data)
+
+    def test_create_listing_notification_org_steward_invalid_format(self):
+        url = '/api/notification/'
+        user = generic_model_access.get_profile('wsmith').user
+        self.client.force_authenticate(user=user)
+        now = datetime.datetime.now(pytz.utc)
+
+        data = {'expires_date': str(now),
+                'message': 'a simple listing test',
+                'listing': {
+            'invalid': 1
+            }}
+
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['non_field_errors'], ["Valid Listing ID is required"])
+
+    def test_create_listing_notification_org_steward_invalid_id(self):
+        url = '/api/notification/'
+        user = generic_model_access.get_profile('wsmith').user
+        self.client.force_authenticate(user=user)
+        now = datetime.datetime.now(pytz.utc)
+
+        data = {'expires_date': str(now),
+                'message': 'a simple listing test',
+                'listing': {
+            'id': -1
+            }}
+
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['non_field_errors'], ["Could not find listing"])
+
     # TODO: test_create_listing_notification_org_steward_invalid (rivera 20150617)
     # TODO: test_create_listing_notification_user_unauthorized (rivera 20150617)
 
@@ -257,54 +386,104 @@ class NotificationApiTest(APITestCase):
         now = datetime.datetime.now(pytz.utc)
 
         data = {'expires_date': str(now),
-                'message': 'a simple agency test',
-                'agency': {'id': 1}
-                }
+                'message': 'A Simple Agency Test',
+                'agency': {
+            'id': 1
+            }}
 
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['message'], 'a simple agency test')
+        self.assertEqual(response.data['message'], 'A Simple Agency Test')
         self.assertEqual(response.data['notification_type'], 'AGENCY')
         self.assertEqual(response.data['agency']['id'], 1)
+        self.assertEqual(response.data['listing'], None)
+        self.assertTrue('expires_date' in data)
 
-    # TODO: test_create_agency_notification_app_mall_steward_invalid (rivera 20150617)
+    def test_create_agency_notification_app_mall_steward_invalid_format(self):
+        url = '/api/notification/'
+        user = generic_model_access.get_profile('bigbrother').user
+        self.client.force_authenticate(user=user)
+        now = datetime.datetime.now(pytz.utc)
+
+        data = {'expires_date': str(now),
+                'message': 'a simple agency test',
+                'agency': {
+            'invalid': 1
+            }}
+
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['non_field_errors'], ['Valid Agency ID is required'])
+
+    def test_create_agency_notification_app_mall_steward_invalid_id(self):
+        url = '/api/notification/'
+        user = generic_model_access.get_profile('bigbrother').user
+        self.client.force_authenticate(user=user)
+        now = datetime.datetime.now(pytz.utc)
+
+        data = {'expires_date': str(now),
+                'message': 'a simple agency test',
+                'agency': {
+            'id': -1
+            }}
+
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['non_field_errors'], ['Could not find agency'])
+
     # TODO: test_create_agency_notification_org_steward (rivera 20150617)
     # TODO: test_create_agency_notification_org_steward_invalid (rivera 20150617)
     # TODO: test_create_agency_notification_user_unauthorized (rivera 20150617)
 
-    # TODO test_create_peer_notification (rivera 20150617)
-    '''
-    {
-    "expires_date":"2016-06-17T06:30:00.000Z",
-     "message":"Test",
-        "peer" : {
-            "username":"bigbrother"
-        }
-    }
-    '''
+    def test_create_peer_notification_app_mall_steward(self):
+        url = '/api/notification/'
+        user = generic_model_access.get_profile('bigbrother').user
+        self.client.force_authenticate(user=user)
+        now = datetime.datetime.now(pytz.utc)
+
+        data = {"expires_date": str(now),
+                "message": "A Simple Peer to Peer Notification",
+                "peer": {
+                    "user": {
+                      "username": "jones"
+                    }
+            }}
+
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['message'], 'A Simple Peer to Peer Notification')
+        self.assertEqual(response.data['notification_type'], 'PEER')
+        self.assertEqual(response.data['agency'], None)
+        self.assertEqual(response.data['listing'], None)
+        self.assertEqual(response.data['peer'], {'user': {'username': 'jones'}})
+        self.assertTrue('expires_date' in data)
+
+    @skip("should work when data script gets refactored (rivera 20150620)")
+    def test_create_peer_bookmark_notification_app_mall_steward(self):
+        url = '/api/notification/'
+        user = generic_model_access.get_profile('bigbrother').user
+        self.client.force_authenticate(user=user)
+        now = datetime.datetime.now(pytz.utc)
+
+        data = {"expires_date": str(now),
+                "message": "A Simple Peer to Peer Notification",
+                "peer": {
+                    "user": {
+                      "username": "jones"
+                    },
+                    "folder_name": "folder"
+            }}
+
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['message'], 'A Simple Peer to Peer Notification')
+        self.assertEqual(response.data['notification_type'], 'PEER')
+        self.assertEqual(response.data['agency'], None)
+        self.assertEqual(response.data['listing'], None)
+        self.assertTrue('expires_date' in data)
+
     # TODO test_create_peer_notification_invalid (rivera 20150617)
-    '''
-    {
-    "expires_date":"2016-06-17T06:30:00.000Z",
-     "message":"Test",
-        "peer" : {
-            "username":"invalid"
-        }
-    }
-    '''
     # TODO test_create_peer_bookmark_notification (rivera 20150617)
-    '''
-    {
-        "expires_date":"2016-06-17T06:30:00.000Z",
-        "message":"Test",
-        "peer" : {
-            "username":"bigbrother"
-        },
-        "peer_data": {
-            "folder_name":"folder1"
-        }
-    }
-    '''
 
     def test_delete_system_notification_apps_mall_steward(self):
         url = '/api/notification/1/'
@@ -313,13 +492,14 @@ class NotificationApiTest(APITestCase):
         response = self.client.delete(url, format='json')
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
-    # TODO: below test should work when permission gets refactored (rivera 20150617)
-    # def test_delete_system_notification_org_steward(self):
-    #     url = '/api/notification/1/'
-    #     user = generic_model_access.get_profile('wsmith').user
-    #     self.client.force_authenticate(user=user)
-    #     response = self.client.delete(url, format='json')
-    #     self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+    # TODO below test should work when permission gets refactored (rivera 20150620)
+    @skip("should work when permission gets refactored (rivera 20150620)")
+    def test_delete_system_notification_org_steward(self):
+        url = '/api/notification/1/'
+        user = generic_model_access.get_profile('wsmith').user
+        self.client.force_authenticate(user=user)
+        response = self.client.delete(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_delete_system_notification_user_unauthorized(self):
         url = '/api/notification/1/'

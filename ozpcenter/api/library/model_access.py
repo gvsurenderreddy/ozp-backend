@@ -67,7 +67,7 @@ def get_library_entry_by_id(library_entry_id):
         return data
 
 
-def get_self_application_library(username, listing_type=None):
+def get_self_application_library(username, listing_type=None, folder_name=None):
     """
     Get the ApplicationLibrary for this user
 
@@ -76,7 +76,8 @@ def get_self_application_library(username, listing_type=None):
 
     Args:
         username (str): username
-        listing_type (str) optional: listing type
+        listing_type (str) optional: filter by listing type
+        folder_name(str) optional: filter by folder_name
 
     return:
         Queryset(ApplicationLibraryEntry): User's Application Library
@@ -87,12 +88,16 @@ def get_self_application_library(username, listing_type=None):
     data = cache.get(key)
     if data is None:
         try:
-            data = models.ApplicationLibraryEntry.objects.filter(
-                owner__user__username=username).filter(listing__is_enabled=True) \
-                .filter(listing__is_deleted=False)
+            data = models.ApplicationLibraryEntry.objects
+            data = data.filter(owner__user__username=username)
+            data = data.filter(listing__is_enabled=True)
+            data = data.filter(listing__is_deleted=False)
 
             if listing_type:
                 data = data.filter(listing__listing_type__title=listing_type)
+
+            if folder_name:
+                data = data.filter(folder=folder_name)
 
             cache.set(key, data)
             return data

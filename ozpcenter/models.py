@@ -1016,6 +1016,59 @@ class Notification(models.Model):
     agency = models.ForeignKey(Agency, related_name='agency_notifications',
                                null=True, blank=True)
 
+    # Peer to Peer Notifications
+    # 'peer_org' declaration causes a Segmentation Fault (core dumped) Error in Django Database Libray Code
+    # django/db/backends/sqlite3/base.py, line 316 in execute
+
+    # peer_org = models.ForeignKey(Profile, related_name='peer_notifications', null=True)
+    _peer = models.CharField(max_length=4096, null=True, blank=True, db_column='peer')
+
+    @property
+    def peer(self):
+        if self._peer:
+            return json.loads(self._peer)
+        else:
+            return None
+
+    @peer.setter
+    def peer(self, value):
+        """
+        Setter for peer variable
+
+        {
+            'user': {
+                'username': str
+            },
+            '_bookmark_listing_ids': list[int],
+            'folder_name': str
+        }
+
+        Args:
+            value (dict): dictionary
+        """
+        if value:
+            assert isinstance(value, dict), 'Argument of wrong type is not a dict'
+
+            temp = {}
+
+            if 'user' in value:
+                temp_user = {}
+                current_user_dict = value['user']
+                assert isinstance(current_user_dict, dict), 'Argument of wrong type is not a dict'
+
+                if 'username' in current_user_dict:
+                    temp_user['username'] = current_user_dict['username']
+
+                temp['user'] = temp_user
+
+            for entry_key in ['folder_name', '_bookmark_listing_ids']:
+                if entry_key in value:
+                    temp[entry_key] = value[entry_key]
+
+            self._peer = json.dumps(temp)
+        else:
+            return None
+
     def notification_type(self):
         """
         Dynamically figure out Notification Type
@@ -1024,8 +1077,25 @@ class Notification(models.Model):
             SYSTEM - System-wide Notifications
             AGENCY - Agency-wide Notifications
             LISTING - Listing Notifications
+            PEER - Peer to Peer Notifications
+            PEER.BOOKMARK - Peer to Peer Bookmark Notifications
         """
         type_list = []
+        peer_list = []
+
+        if self.peer:
+            peer_list.append('PEER')
+
+            try:
+                json_obj = (self.peer)
+                if json_obj and 'folder_name' in json_obj:
+                        peer_list.append('BOOKMARK')
+            except ValueError:
+                # Ignore Value Errors
+                pass
+
+        if peer_list:
+            type_list.append('.'.join(peer_list))
 
         if self.listing:
             type_list.append('LISTING')

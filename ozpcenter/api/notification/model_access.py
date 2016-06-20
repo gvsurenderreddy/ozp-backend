@@ -111,7 +111,7 @@ def _check_profile_permission(user_role_type, notification_action, notification_
             NotificationActionEnum.CREATE: {
                 NotificationTypeEnum.SYSTEM: lambda: raise_(errors.PermissionDenied('Only app mall stewards can create system notifications')),
                 NotificationTypeEnum.AGENCY: lambda: True,
-                NotificationTypeEnum.LISTING: lambda: org_create_listing_condition(profile_obj, listing)
+                NotificationTypeEnum.LISTING: lambda: True  # TODO: org_create_listing_condition(profile_obj, listing)
             },
             NotificationActionEnum.UPDATE: {
                 # lambda: raise_(errors.PermissionDenied('Only app mall
@@ -149,7 +149,7 @@ def _check_profile_permission(user_role_type, notification_action, notification_
     return permissions.get(user_role_type, {}).get(notification_action, {}).get(notification_type, lambda: raise_(errors.PermissionDenied('Unknown Permissions')))
 
 
-def create_notification(author_username, expires_date, message, listing=None, agency=None):
+def create_notification(author_username, expires_date, message, listing=None, agency=None, peer=None):
     """
     Create Notification
 
@@ -201,7 +201,8 @@ def create_notification(author_username, expires_date, message, listing=None, ag
         author=user,
         message=message,
         listing=listing,
-        agency=agency)
+        agency=agency,
+        peer=peer)
 
     notification.save()
     return notification
